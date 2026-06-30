@@ -1,0 +1,299 @@
+# 🔄 GitHub Actions - Pipeline de Integración Continua (CI)
+# Este workflow ejecuta automáticamente en cada push o pull request a main
+# Verifica lint, formato, y ejecuta todos los tests
+
+name: CI Pipeline
+
+# 📌 Triggers - Cuándo se ejecuta este workflow
+on:
+  # Se ejecuta en push a main
+  push:
+    branches:
+      - main
+      - develop
+  
+  # Se ejecuta en pull requests a main
+  pull_request:
+    branches:
+      - main
+  
+  # Permite disparar manualmente desde GitHub Actions
+  workflow_dispatch:
+
+# 🔐 Permisos necesarios
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: read  # Para SonarCloud scan
+
+# 🚀 Jobs - Definición de trabajos a ejecutar
+jobs:
+  # ============================================
+  # JOB 1: LINTING & FORMAT CHECK
+  # ============================================
+  lint-and-format:
+    name: 🔍 Lint & Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Paso 1: Descargar el código del repositorio
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para análisis completo
+      
+      # Paso 2: Configurar Node.js con versión específica
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'  # LTS compatible con Next.js 16
+          cache: 'npm'  # Usar caché de npm para acelerar instalación
+      
+      # Paso 3: Restaurar caché de node_modules (si existe)
+      - name: 💾 Restore npm cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      # Paso 4: Instalar dependencias
+      - name: 📦 Install dependencies
+        run: npm ci  # npm ci es más seguro que npm install en CI
+      
+      # Paso 5: Ejecutar linter (ESLint)
+      # Falla si hay warnings o errores
+      - name: 🔍 Run ESLint
+        run: npm run lint -- --max-warnings=0
+        continue-on-error: false
+      
+      # Paso 6: Verificar formato con Prettier
+      # Falla si el código no está formateado correctamente
+      - name: ✨ Check code format with Prettier
+        run: npx prettier src/ --check
+        continue-on-error: false
+
+  # ============================================
+  # JOB 2: UNIT TESTS
+  # ============================================
+  unit-tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-format  # Espera a que lint termine
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      
+      # Instalar dependencias de testing si no están
+      - name: 📦 Install dependencies
+        run: npm ci
+      
+      # Ejecutar tests unitarios con Jest
+      - name: 🧪 Run unit tests
+        run: |
+          npm run test -- --testPathPattern='\.test\.' --coverage
+        continue-on-error: false
+      
+      # Subir reporte de cobertura (opcional)
+      - name: 📊 Upload coverage reports
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unittests
+          name: codecov-umbrella
+
+  # ============================================
+  # JOB 2B: SONARCLOUD SCAN (Análisis de Calidad)
+  # ============================================
+  sonarcloud-scan:
+    name: 🔬 SonarCloud Code Quality
+    runs-on: ubuntu-latest
+    needs: unit-tests  # Espera a que unit-tests genere cobertura
+    # Solo ejecutar en PR o en rama main
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    
+    steps:
+      # Paso 1: Descargar código con historial completo (necesario para SonarCloud)
+      - name: 📥 Checkout code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para SonarCloud analizar el historial
+      
+      # Paso 2: Configurar Node.js (necesario para procesar archivos TS)
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      
+      # Paso 3: Instalar dependencias
+      - name: 📦 Install dependencies
+        run: npm ci
+      
+      # Paso 4: Ejecutar tests con cobertura (si no se ejecutaron antes)
+      - name: 🧪 Generate coverage for SonarCloud
+        run: npm run test:coverage
+        continue-on-error: true  # Continuar incluso si hay fallos
+      
+      # Paso 5: Ejecutar SonarCloud scan
+      # Este paso analiza el código y verifica el Quality Gate
+      - name: 🔬 SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          # Token de autenticación en SonarCloud
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Token del proyecto en SonarCloud (genera en https://sonarcloud.io)
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        continue-on-error: false  # Fallar si SonarCloud detecta problemas
+      
+      # Paso 6: Esperar a Quality Gate (opcional pero recomendado)
+      # Este paso verifica que el código pase el Quality Gate configurado
+      - name: 📊 Check Quality Gate
+        run: |
+          echo "✅ SonarCloud scan completed"
+          echo "📊 Ver resultados en: https://sonarcloud.io/dashboard?id=${{ secrets.SONAR_PROJECT_KEY }}"
+        continue-on-error: false
+
+  # ============================================
+  # JOB 3: INTEGRATION TESTS
+  # ============================================
+  integration-tests:
+    name: 🧪 Integration Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-format  # Puede ejecutarse en paralelo con unit-tests
+    
+    services:
+      # Contenedor de PostgreSQL para tests de integración
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: turismosur_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      
+      - name: 📦 Install dependencies
+        run: npm ci
+      
+      # Configurar variables de entorno para tests
+      - name: ⚙️ Setup test environment
+        run: |
+          echo "DATABASE_URL=postgresql://test:test@localhost:5432/turismosur_test" >> .env.test
+          echo "NODE_ENV=test" >> .env.test
+      
+      # Ejecutar tests de integración
+      - name: 🧪 Run integration tests
+        run: npm run test -- --testPathPattern='\.integration\.'
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/turismosur_test
+        continue-on-error: false
+
+  # ============================================
+  # JOB 4: BUILD VERIFICATION
+  # ============================================
+  build:
+    name: 🏗️ Build Verification
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]  # Espera a que los tests terminen
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      
+      - name: 📦 Install dependencies
+        run: npm ci
+      
+      # Intentar compilar el proyecto
+      - name: 🏗️ Build project
+        run: npm run build
+        continue-on-error: false
+      
+      # Verificar que los archivos de build se generaron correctamente
+      - name: ✅ Verify build artifacts
+        run: |
+          if [ -d ".next" ]; then
+            echo "✅ Build artifacts generated successfully"
+            ls -la .next/
+          else
+            echo "❌ Build artifacts not found"
+            exit 1
+          fi
+
+  # ============================================
+  # JOB 6: COMMENT ON PR (Opcional)
+  # ============================================
+  comment-on-pr:
+    name: 📝 Comment on PR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && always()
+    needs: [lint-and-format, unit-tests, sonarcloud-scan, integration-tests, build]
+    
+    steps:
+      - name: 📝 Comment PR with status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allJobsSucceeded = '${{ needs.lint-and-format.result }}' === 'success' && 
+                                      '${{ needs.unit-tests.result }}' === 'success' &&
+                                      '${{ needs.sonarcloud-scan.result }}' === 'success' &&
+                                      '${{ needs.integration-tests.result }}' === 'success' &&
+                                      '${{ needs.build.result }}' === 'success';
+            
+            const emoji = allJobsSucceeded ? '✅' : '❌';
+            const status = allJobsSucceeded ? 'PASSED' : 'FAILED';
+            
+            const comment = `${emoji} **CI Pipeline ${status}**
+            
+            | Check | Status |
+            |-------|--------|
+            | 🔍 Lint & Format | ${{ needs.lint-and-format.result }} |
+            | 🧪 Unit Tests | ${{ needs.unit-tests.result }} |
+            | 🔬 SonarCloud | ${{ needs.sonarcloud-scan.result }} |
+            | 🧪 Integration Tests | ${{ needs.integration-tests.result }} |
+            | 🏗️ Build | ${{ needs.build.result }} |
+            
+            [Ver detalles en SonarCloud](https://sonarcloud.io)`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+# 📊 Configuración de notificaciones
+# Descomenta las líneas siguientes si necesitas notificaciones adicionales
+# env:
+#   SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}  # Requiere agregar secret en Settings

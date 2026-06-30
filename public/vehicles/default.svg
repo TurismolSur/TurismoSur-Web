@@ -1,0 +1,17 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="40" fill="#0F172A"/>
+  <rect x="120" y="180" width="960" height="360" rx="36" fill="url(#paint0_linear)"/>
+  <path d="M260 408H940" stroke="#38BDF8" stroke-width="10" stroke-linecap="round" opacity="0.7"/>
+  <circle cx="340" cy="490" r="66" fill="#94A3B8"/>
+  <circle cx="860" cy="490" r="66" fill="#94A3B8"/>
+  <circle cx="340" cy="490" r="36" fill="#CBD5E1"/>
+  <circle cx="860" cy="490" r="36" fill="#CBD5E1"/>
+  <text x="600" y="360" fill="#E2E8F0" font-size="56" font-family="Arial, Helvetica, sans-serif" text-anchor="middle" font-weight="700">TurismoSur</text>
+  <text x="600" y="430" fill="#38BDF8" font-size="28" font-family="Arial, Helvetica, sans-serif" text-anchor="middle">Vehículo disponible</text>
+  <defs>
+    <linearGradient id="paint0_linear" x1="120" y1="180" x2="1080" y2="540" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#1E293B"/>
+    </linearGradient>
+  </defs>
+</svg>

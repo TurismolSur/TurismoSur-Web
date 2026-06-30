@@ -1,0 +1,17 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="40" fill="#F8FAFC"/>
+  <rect x="80" y="130" width="1040" height="460" rx="32" fill="#081B33"/>
+  <ellipse cx="600" cy="560" rx="380" ry="38" fill="#000000" opacity="0.18"/>
+  <path d="M272 356H928" stroke="#C7D2FE" stroke-width="8" stroke-linecap="round" opacity="0.35"/>
+  <text x="170" y="214" fill="#E2E8F0" font-size="72" font-family="Arial, Helvetica, sans-serif" font-weight="700">Toyota</text>
+  <text x="170" y="286" fill="#38BDF8" font-size="64" font-family="Arial, Helvetica, sans-serif" font-weight="700">RAV4</text>
+  <text x="170" y="338" fill="#CBD5E1" font-size="28" font-family="Arial, Helvetica, sans-serif">SUV · 4x4 · TurismoSur</text>
+  <circle cx="375" cy="500" r="78" fill="#334155"/>
+  <circle cx="835" cy="500" r="78" fill="#334155"/>
+  <circle cx="375" cy="500" r="42" fill="#E2E8F0"/>
+  <circle cx="835" cy="500" r="42" fill="#E2E8F0"/>
+  <path d="M265 372C270 325 303 260 374 240C449 218 795 218 864 242C924 262 956 321 960 372L972 442H252L265 372Z" fill="#0F172A"/>
+  <path d="M366 240H820L872 336H320L366 240Z" fill="#1E293B"/>
+  <path d="M485 245L430 336H332L366 240H470L485 245Z" fill="#1D4ED8" opacity="0.45"/>
+  <path d="M820 240H876L932 336H872L820 240Z" fill="#1D4ED8" opacity="0.45"/>
+</svg>
